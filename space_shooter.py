@@ -10,12 +10,28 @@ HEIGHT = 600
 #Colores
 negro = (0,0,0)
 blanco = (255,255,255)
+verde = (0, 255, 0)
 
-pygame.init()
-pygame.mixer.init()
+pygame.init() 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption('Shooter')
 clock = pygame.time.Clock()
+
+def draw_text(surface, text, size, x, y):
+    font = pygame.font.SysFont('serif', size) 
+    text_surface = font.render(text, True, blanco)
+    text_rect = text_surface.get_rect()
+    text_rect.midtop = (x, y)
+    surface.blit(text_surface, text_rect)
+
+def draw_shield_bar(surface, x, y, percentage):
+    BAR_LENGHT = 100
+    BAR_HEIGHT = 10
+    fill = (percentage / 100) * BAR_LENGHT
+    border = pygame.Rect(x, y, BAR_LENGHT, BAR_HEIGHT)
+    fill = pygame.Rect(x, y, fill, BAR_HEIGHT)
+    pygame.draw.rect(surface, verde, fill)
+    pygame.draw.rect(surface, blanco, border, 2)
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -26,6 +42,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.centerx = WIDTH // 2
         self.rect.bottom = HEIGHT - 10
         self.speed_x = 0
+        self.shield = 100
 
     #Funcion de actualizacion
     def update(self):
@@ -49,18 +66,18 @@ class Player(pygame.sprite.Sprite):
 class Meteor(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.image = pygame.image.load('assets/meteorGrey_med1.png').convert()
+        self.image = random.choice(meteor_images)
         self.image.set_colorkey(negro)
         self.rect = self.image.get_rect()
         self.rect.x = random.randrange(WIDTH - self.rect.width)
-        self.rect.y = random.randrange(-100, -40)
+        self.rect.y = random.randrange(-140, -100)
         self.speedy = random.randrange(1, 10)
         self.speedx = random.randrange(-5, 5)
     
     def update(self):
         self.rect.y += self.speedy
         self.rect.x += self.speedx
-        if self.rect.top > HEIGHT + 10 or self.rect.left < -25 or self.rect.right > WIDTH + 25:
+        if self.rect.top > HEIGHT + 10 or self.rect.left < -40 or self.rect.right > WIDTH + 25:
             self.rect.x = random.randrange(WIDTH - self.rect.width)
             self.rect.y = random.randrange(-100, -40)
             self.speedy = random.randrange(1, 10)
@@ -80,6 +97,15 @@ class Bullet(pygame.sprite.Sprite):
         if self.rect.bottom < 0:
             self.kill()
 
+meteor_images = []
+meteor_list = [ "assets/meteorGrey_big1.png", "assets/meteorGrey_big2.png", "assets/meteorGrey_big3.png", "assets/meteorGrey_big4.png",
+				"assets/meteorGrey_med1.png", "assets/meteorGrey_med2.png", "assets/meteorGrey_small1.png", "assets/meteorGrey_small2.png",
+				"assets/meteorGrey_tiny1.png", "assets/meteorGrey_tiny2.png"]
+
+for img in meteor_list:
+    meteor_images.append(pygame.image.load(img).convert())
+
+
 #Cargar Imagen De Fondo
 background = pygame.image.load('assets/background.png').convert()
 
@@ -89,11 +115,16 @@ bullets = pygame.sprite.Group()
 
 player = Player()
 all_sprites.add(player)
-
-for i in range(8):
+def new_meteor():
     meteor = Meteor()
     all_sprites.add(meteor)
     meteor_list.add(meteor)
+
+for i in range(8):
+    new_meteor()
+
+#Variable de Puntaje
+score = 0
 
 running = True
 while running:
@@ -110,19 +141,27 @@ while running:
     #Verificar colisiones - meteoro - laser
     hits = pygame.sprite.groupcollide(meteor_list, bullets, True, True)
     for hit in hits:
-        meteor = Meteor()
-        all_sprites.add(meteor)
-        meteor_list.add(meteor)
+        score += 1
+        new_meteor()
 
     #Verificar colisiones - jugador - meteoro
     hits = pygame.sprite.spritecollide(player, meteor_list, True)
 
-    if hits:
-        running = False
+    for hit in hits:
+        player.shield -= 25
+        new_meteor()
+        if player.shield <= 0:
+            running = False
 
     screen.blit(background, [0, 0])
 
     all_sprites.draw(screen)
+
+    #Marcador
+    draw_text(screen, str(score ), 25, WIDTH // 2, 10)
+
+    #Escudo
+    draw_shield_bar(screen, 5, 5, player.shield)
     
     pygame.display.flip()
 
